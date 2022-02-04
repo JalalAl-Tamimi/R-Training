@@ -1,0 +1,450 @@
+---
+title: "Session 2 - Introduction to the Tidyverse"
+author:
+  name: Jalal Al-Tamimi
+  affiliation: Université de Paris
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_notebook:
+    highlight: pygments
+    number_sections: yes
+    toc: yes
+    toc_depth: 6
+    toc_float:
+      collapsed: yes
+ 
+---
+
+# Loading packages 
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+## Use the code below to check if you have all required packages installed. If some are not installed already, the code below will install these. If you have all packages installed, then you could load them with the second code.
+requiredPackages = c('tidyverse', 'languageR')
+for(p in requiredPackages){
+  if(!require(p,character.only = TRUE)) install.packages(p)
+  library(p,character.only = TRUE)
+}
+```
+
+
+# The `Tidyverse`
+
+## Introduction
+
+The `Tidyverse` is a family of packages used to speed up the use of R. 
+
+![](images/tidyverse.png)
+
+You need to first install it (if you haven't already done so) and then load it. To install, use `Tools > Install packages` or `install.packages()` then add tidyverse. To load a package, use the `library()` function.
+
+
+Look at how many packages are installed within the `Tidyverse`. The messages you see are telling you which packages are loaded and which functions are in conflict (i.e., these are functions from other packages that are found within the `Tidyverse`). If you want to use the original function, simply add `package_name::function`.
+
+
+### Using piping
+
+The difference between base R and the Tidyverse's way of doing things is that base R can sometimes be more complex, while tidyverse is more straightforward and allows you to "see" within a dataframe easily. 
+You need to learn how to use the "pipe" in `magrittr` that is part of the `Tidyverse`. 
+
+![](images/MagrittePipe.jpg)
+
+Pipes are written in R as `%>%` (note you must use a percentage sign before and after the pipe). To demonstrate what pipes do, have a look at the following pseudocode. You can use a shortcut in your keyboard, type Ctrl+Shift+m to add a `pipe` (for mac users, it is Cmd+Shift+m).
+
+
+![](images/piping.png)
+
+
+Since `R` version `4.1.0`, there is a native pipe `|>`. It seems to be doing almost the same thing as the `%>%`. We will still use `%>%` as this is integrated within the `Tidyverse`.
+
+### Demo subsetting
+
+Below are two code lines for how to subset the dataframe using base `R` and piping from the `magrittr` package. 
+
+With base R, we always need to refer to the dataset twice: once at the beginning and then to look into the dataset to select a variable.
+
+
+```{r}
+word <- c("a", "the", "lamp", "not", "jump", "it", "coffee", "walk", "on")
+freq <- c(500, 600, 7, 200, 30, 450, 130, 33, 300)  # note this is completely made up!!
+functionword <- c("y", "y", "n", "y", "n", "y", "n", "n", "y")
+length <- c(1, 3, 4, 3, 4, 2, 6, 4, 2)
+df <- as.data.frame(cbind(word,freq,functionword,length))
+rm(word,freq,functionword,length)
+df$functionword <- as.character(df$functionword)
+df$functionword[df$functionword == "y"] <- "yes"
+df$functionword[df$functionword == "no"] <- "no"
+df$functionword <- as.factor(df$functionword)
+```
+
+
+
+```{r}
+df_Yes1 <- df[which(df$functionword == 'yes'),]
+df_Yes1
+```
+
+
+With the pipe, you only need to specify the dataset once: By adding the pipe, you can already look into the dataset and select the variable you need.
+
+```{r}
+df_Yes1_pipe_tidy <- df %>% filter(functionword =='yes')
+df_Yes1_pipe_tidy
+```
+
+
+And this is with the base R pipe (combined with code from the `Tidyverse` family)
+
+
+```{r}
+df_Yes1_pipe_base <- df |> filter(functionword =='yes')
+df_Yes1_pipe_base
+```
+
+
+As you can see, using the pipe (either within the `Tidyverse` or with base R) is a quick and easy way to do various operations.
+
+Out of convenience and because we will use other packages integrated within the `Tidyverse`, we will use its pipe.
+
+ReCap:
+
+- `%>%` is called a "pipe"  
+- It passes the previous line into the `data` argument of the next line  
+- It **does not save any changes** after output 
+- If you want to save the output of a particular manipulation, simply save it with xx <- 
+
+
+## Basic manipulations
+
+We will use the pipe with the `Tidyverse` to obtain summaries. We will use an `R` built-in dataset. Type `data()` to see the full list of datasets installed by default in `R`. You can use `data(package = .packages(all.available = TRUE))` to see all datasets installed within all packages.
+
+
+
+### First steps
+
+Here is a list of all available datasets
+
+
+```{r}
+data()
+data(package = .packages(all.available = TRUE))
+```
+
+### Loading dataset
+
+We will use the dataset `english` from the package `languageR`. This is a package that contains many linguistically-oriented datasets.
+See details of the dataset [here](https://www.rdocumentation.org/packages/languageR/versions/1.5.0/topics/english). Or by typing `?languageR::english` (or simply `?english` if the package is already loaded) in the console.
+
+You can load the dataset after loading the package. Simply refer to it by its name. 
+
+```{r}
+?english
+```
+
+
+### View
+
+To see the dataset, run the code below to visualise it. 
+
+```{r}
+english %>% 
+  View()
+# or without pipe
+View(english)
+```
+
+
+
+### Structure
+
+
+We can use `str()` to look at the structure of the dataset. Here we have a relatively large dataset with 4568 observations (=rows) and 36 variables (=columns).
+
+```{r}
+english %>% 
+  str()
+# or without pipe
+str(english)
+```
+
+
+### See first 6 rows
+
+```{r}
+english %>% 
+  head()
+# or without pipe
+head(english)
+```
+
+### See last 6 rows
+
+```{r}
+english %>% 
+  tail()
+# or without pipe
+tail(english)
+```
+
+### Selecting variables
+
+Here, we select a few variables to use. For `variables` or `columns`, use the function `select`
+
+```{r}
+english %>% 
+  select(RTlexdec, RTnaming, Familiarity)
+# or without pipe
+select(english, RTlexdec, RTnaming, Familiarity)
+```
+
+
+### Selecting observations
+
+If we want to select observations, we use the function `filter`. We will use `select` to select particular variables and then use `filter` to select specific observations. This example shows how the pipe chain works, by combining multiple functions and using pipes
+
+```{r}
+english %>% 
+  select(RTlexdec, RTnaming, Familiarity, AgeSubject) %>% 
+  filter(AgeSubject == "old")
+# or without pipe
+filter(select(english, RTlexdec, RTnaming, Familiarity, AgeSubject), AgeSubject == "old")
+```
+
+
+
+### Changing order of levels
+
+Use some of the code above to manipulate the dataframe but now using code from the `Tidyverse`. As you will see, once you know how to manipulate a dataset with base `R`, you can easily apply the same techniques with the `Tidyverse`. The `Tidyverse` provides additional ways to manipulate a dataframe.
+
+For example, if I want to check levels of a variable and change the reference level, I will use the following code
+
+```{r}
+levels(english$AgeSubject)
+```
+
+
+To change levels of `AgeSubject`, we need to save a new dataset (do not override the original dataset!!). The `mutate` function means we are manipulating an object.
+
+```{r}
+english2<- english %>% 
+  mutate(AgeSubject = factor(AgeSubject, levels = c("young", "old")))
+# or without pipe
+english2 <- mutate(english, AgeSubject = factor(AgeSubject, levels = c("young", "old")))
+
+levels(english2$AgeSubject)
+```
+
+### Changing reference value
+
+You can change the reference value by using `fct_relevel`. This is useful if you have many levels in one of the factors you are working with and you simply need to change the reference.
+
+```{r}
+english2<- english %>% 
+  mutate(AgeSubject = fct_relevel(AgeSubject, "old"))
+# or without pipe
+english2 <- mutate(english, AgeSubject = fct_relevel(AgeSubject, "old"))
+
+levels(english2$AgeSubject)
+```
+
+The `Tidyverse` contains many functions that are useful for data manipulation. We will look at additional ones next week
+
+
+### Activity on your own 1
+
+Use any of the other factors and try to change its levels and/or its reference level
+
+```{r}
+
+```
+
+
+## Advanced manipulations
+
+Sometimes, you may have a dataset that comes in a wide format (i.e., columns contain data from participants) and you want to change to long format (i.e., each row contains one observation with minimal number of columns). Let's look at the functions `pivot_longer` and `pivot_wider`
+
+### Columns to rows
+
+Let's use the `english` dataset to transform it from wide to long.
+
+```{r}
+english %>% 
+  select(Word, RTlexdec, RTnaming, Familiarity) %>% 
+  pivot_longer(cols = c(RTlexdec, RTnaming, Familiarity), # you can also add index, i.e., 2:4
+               names_to = "variable",
+               values_to = "values")
+# or without pipe
+pivot_longer(select(english, Word, RTlexdec, RTnaming, Familiarity),
+             cols = c(RTlexdec, RTnaming, Familiarity), # you can also add index, i.e., 2:4
+             names_to = "variable",
+             values_to = "values")
+```
+
+
+### Rows to columns
+
+Let's use the same code above and change the code from long format, back to wide format. Pivot_wider allows you to go back to the original dataset. You will need to use `unnest` to get all rows in the correct place. Try without it to see the result.
+
+
+```{r}
+english %>% 
+  select(Word, RTlexdec, RTnaming, Familiarity) %>% 
+  pivot_longer(cols = c(RTlexdec, RTnaming, Familiarity), # you can also add index, i.e., 2:4
+               names_to = "variable",
+               values_to = "values") %>% 
+  pivot_wider(names_from = "variable",
+              values_from = "values")
+# or without pipe
+pivot_wider(pivot_longer(select(english, Word, RTlexdec, RTnaming, Familiarity),
+                         cols = c(RTlexdec, RTnaming, Familiarity), # you can also add index, i.e., 2:4
+                         names_to = "variable",
+                         values_to = "values"),
+            names_from = "variable",
+            values_from = "values")
+```
+
+
+But wait, where are the results? They are added in lists. We need to use the function `unnest()` to obtain the full results. 
+
+```{r}
+english %>% 
+  select(Word, RTlexdec, RTnaming, Familiarity) %>% 
+  pivot_longer(cols = c(RTlexdec, RTnaming, Familiarity), # you can also add index, i.e., 2:4
+               names_to = "variable",
+               values_to = "values") %>% 
+  pivot_wider(names_from = "variable",
+              values_from = "values") %>% 
+  unnest()
+# or without pipe
+unnest(pivot_wider(pivot_longer(select(english, Word, RTlexdec, RTnaming, Familiarity),
+                                cols = c(RTlexdec, RTnaming, Familiarity), # you can also add index, i.e., 2:4
+                                names_to = "variable",
+                                values_to = "values"),
+                   names_from = "variable",
+                   values_from = "values"))
+```
+
+
+  
+Ah that is better. But we get warnings. What does the warnings tell us?
+These are simple warnings and not errors. You can use the suggestions the `Tidyverse` makes. By default, we are told that the results are shown as lists of columns (what we are after). The second warning tells you to use a specific specification with unnest().
+
+
+## Basic descriptive statistics
+
+
+### Basic summaries 
+
+
+We can use `summary()` to obtain basic summaries of the dataset. For numeric variables, this will give you the minimum, maximum, mean, median, 1st and 3rd quartiles; for factors/characters, this will be the count. If there are missing values, you will get number of NAs. Look at the summaries of the dataset below. 
+
+
+```{r}
+english %>% 
+  summary()
+```
+
+### Summary for a specific variable
+
+```{r}
+english %>% 
+  summarise(count = n(),
+            range_RTlexdec = range(RTlexdec),
+            mean_RTlexdec = mean(RTlexdec),
+            sd_RTlexdec = sd(RTlexdec),
+            var_RTlexdec = var(RTlexdec),
+            min_RTlexdec = min(RTlexdec),
+            max_RTlexdec = max(RTlexdec),
+            quart1_RTlexdec = quantile(RTlexdec, 0.25),
+            quart1_RTlexdec = quantile(RTlexdec, 0.75),
+            median_RTlexdec = median(RTlexdec))
+```
+
+As you can see, we can add use `summarise` to obtain summaries of the dataset. We asked here for the mean, sd, variance, minimum and maximum values, etc.. In the dataset `english`, we have many numeric variables, and if we want to obtain summaries for all of numeric variables, we can use `summarise_all`. 
+
+
+### Summarise_all
+
+If you want to add another level of summaries, e.g., for length, you can either add them as another level (with a new variable name) or use `summarise_all` to do that for you. We need to select only numeric variables to do that. This is the function to only select numeric variables `where(is.numeric)`. If you do not use it, you will get an error message
+
+
+```{r}
+english %>% 
+  select(where(is.numeric)) %>% 
+  summarise_all(funs(mean = mean, sd = sd, var = var, min = min, max = max,
+                     range = range, median = median, Q1 = quantile(., probs = 0.25), Q3 = quantile(., probs = 0.75)))
+```
+
+As you can see, in this example, we see the chains of commands in the `Tidyverse`. We can continue to add commands each time we want to investigate something in particular. Keep adding pipes and commands. The most important point is that the dataset `english` did not change at all. If oyu want to create a new dataset with the results, simply use the assignment function `<-` at the beginning or `->` at the end and give a name to the new dataset.
+
+
+### Group_by
+
+#### One variable
+
+What if you want to obtain all results summarised by a specific grouping? Let's obtain the results grouped by the levels of `AgeSubject`.
+
+
+```{r}
+english %>% 
+  group_by(AgeSubject) %>% 
+  summarise(count = n(),
+            range_RTlexdec = range(RTlexdec),
+            mean_RTlexdec = mean(RTlexdec),
+            sd_RTlexdec = sd(RTlexdec),
+            var_RTlexdec = var(RTlexdec),
+            min_RTlexdec = min(RTlexdec),
+            max_RTlexdec = max(RTlexdec),
+            quart1_RTlexdec = quantile(RTlexdec, 0.25),
+            quart1_RTlexdec = quantile(RTlexdec, 0.75),
+            median_RTlexdec = median(RTlexdec))
+```
+
+
+#### Multiple variables
+
+What if you want to obtain all results summarised by multiple groupings? Let's obtain the results grouped by the levels of `AgeSubject`, `WordCategory` and `Voice` and we want to save the output. 
+
+
+```{r}
+english %>% 
+  group_by(AgeSubject, WordCategory, Voice) %>% 
+  summarise(count = n(),
+            range_RTlexdec = range(RTlexdec),
+            mean_RTlexdec = mean(RTlexdec),
+            sd_RTlexdec = sd(RTlexdec),
+            var_RTlexdec = var(RTlexdec),
+            min_RTlexdec = min(RTlexdec),
+            max_RTlexdec = max(RTlexdec),
+            quart1_RTlexdec = quantile(RTlexdec, 0.25),
+            quart1_RTlexdec = quantile(RTlexdec, 0.75),
+            median_RTlexdec = median(RTlexdec)) -> dfMeans
+dfMeans
+```
+
+
+
+### Activity on your own 2
+
+Use any of the numeric values in the dataset and obtain summaries
+
+```{r}
+
+```
+
+
+
+
+# End of the session
+
+This is the end of the second session. We looked at the various object types, and created a dataframe from scratch. We did some manipulations of the dataframe, by creating a new variable, renaming a column, deleting one, and changing the levels of a variable. We use the package `Tidyverse` to manipulate objects. We obtained then basic summaries and basic plots. 
+
+Next week, we will continue with the package `Tidyverse` to manipulate the data more and obtain additional plots. 
+
+
+# session info
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+sessionInfo()
+```
+
+

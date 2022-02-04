@@ -1,0 +1,635 @@
+---
+title: "Questionnaire LabPhon - Rating & WordClouds"
+author:
+  name: Jalal Al-Tamimi
+  affiliation: Université de Paris
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_notebook:
+    highlight: pygments
+    number_sections: yes
+    toc: yes
+    toc_depth: 6
+    toc_float:
+      collapsed: yes
+ 
+---
+
+Let's look at the responses from the "Questionnaire LabPhon". We look at your responses giving ratings of level of knowledge. We then look at identifying the words you used often in your free text. 
+
+# Loading packages 
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+## Use the code below to check if you have all required packages installed. If some are not installed already, the code below will install these. If you have all packages installed, then you could load them with the second code.
+requiredPackages = c('tidyverse', 'ordinal', 'tm', 'SnowballC', 'wordcloud', 'RColorBrewer', 'quanteda', 'quanteda.textplots')
+for(p in requiredPackages){
+  if(!require(p,character.only = TRUE)) install.packages(p)
+  library(p,character.only = TRUE)
+}
+```
+
+
+# Mean ratings
+
+```{r}
+ratingMean <- read.csv("Questionnaire_LabPhon_rating_mean.csv")
+ratingMean$Questions <- as.factor(ratingMean$Questions)
+str(ratingMean)
+```
+
+## Raw
+
+```{r}
+ratingMean %>% 
+  ggplot(aes(x = Questions, y = Response)) +
+geom_smooth(aes(x = as.numeric(Questions), y = Response), color = "blue", se = F) +
+  coord_cartesian(ylim = c(1, 5)) + 
+  scale_x_discrete(limits = c("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7")) +
+  theme_bw() + 
+   stat_sum(aes(label = paste(round(Response, 2), sep = "")), 
+           size = 4, hjust = -0.25, geom = "text", show.legend = FALSE)  +
+  labs(title = "Mean ratings")
+
+```
+
+
+
+
+
+```{r}
+png(filename = "ratingMean1.png", width = 20, height = 15, units = "cm", res = 300)
+ratingMean %>% 
+  ggplot(aes(x = Questions, y = Response)) +
+geom_smooth(aes(x = as.numeric(Questions), y = Response), color = "blue", se = F) +
+  coord_cartesian(ylim = c(1, 5)) + 
+  scale_x_discrete(limits = c("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7")) +
+  theme_bw() + 
+   stat_sum(aes(label = paste(round(Response, 2), sep = "")), 
+           size = 4, hjust = -0.25, geom = "text", show.legend = FALSE)  +
+  labs(title = "Mean ratings")
+dev.off()
+```
+
+## Proportion
+
+```{r}
+ratingMean %>% 
+  mutate(Proportion = Response / 5) %>% 
+  ggplot(aes(x = Questions, y = Proportion)) +
+geom_smooth(aes(x = as.numeric(Questions), y = Proportion), color = "blue", se = F) +
+  coord_cartesian(ylim = c(0, 1)) + 
+  scale_x_discrete(limits = c("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7")) +
+  theme_bw() + 
+  stat_sum(aes(label = paste(round(Proportion, 2), sep = "")), 
+           size = 4, hjust = -0.25, geom = "text", show.legend = FALSE) +
+  labs(title = "Mean ratings (proportion)")
+
+```
+
+
+
+```{r}
+png(filename = "ratingMean2.png", width = 20, height = 15, units = "cm", res = 300)
+ratingMean %>% 
+  mutate(Proportion = Response / 5) %>% 
+  ggplot(aes(x = Questions, y = Proportion)) +
+geom_smooth(aes(x = as.numeric(Questions), y = Proportion), color = "blue", se = F) +
+  coord_cartesian(ylim = c(0, 1)) + 
+  scale_x_discrete(limits = c("Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7")) +
+  theme_bw() + 
+  stat_sum(aes(label = paste(round(Proportion, 2), sep = "")), 
+           size = 4, hjust = -0.25, geom = "text", show.legend = FALSE) +
+  labs(title = "Mean ratings (proportion)")
+dev.off()
+```
+
+# Cumulative Link Models
+
+These models work perfectly with rating data. Ratings are inherently ordered, 1, 2, ... n, and expect to observe an increase (or decrease) in overall ratings from 1 to n. To demonstrate this, we will use an example using the package "ordinal". Based on the responses given to each of the 7 questions, you provided responses from 1 to 5 based on category names. 
+
+## Importing and pre-processing
+
+We start by importing the data and process it. 
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+rating <- read.csv("Questionnaire_LabPhon_rating.csv")
+str(rating)
+## we need to convert "Response" to a factor
+
+rating <- rating %>% 
+  pivot_longer(-subject,
+               names_to = "Questions",
+               values_to = "Responses")
+rating
+
+
+rating$subject <- as.factor(rating$subject)
+rating$Questions <- as.factor(rating$Questions)
+rating$Responses <- as.factor(rating$Responses)
+str(rating)
+```
+
+
+## Model specification 
+
+As you can see, the model specification follows that of any mixed-effects model. Because we have multiple responses from each participant, we used the model specifications to account for individual responses (a maximal model specification failed to converge). This is because we lack repetitions within each of the questions.
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+mdl.clmm <- rating %>% 
+  clmm(Responses ~ Questions+ (1|subject), data =.)
+summary(mdl.clmm)
+```
+
+## Interpreting a cumulative model
+
+As a way to interpret the model, we can look at the coefficients and make sense of the results. A CLM model is a Logistic model with a cumulative effect. The "Coefficients" are the estimates for each level of the fixed effect; the "Threshold coefficients" are those of the response. For the former, a negative coefficient indicates a negative association with the response; and a positive is positively associated with the response. The p values are indicating the significance of each level. For the "Threshold coefficients", we can see the cumulative effects of ratings 1|2, 2|3, 3|4 and 4|5 which indicate an overall increase in the ratings from 1 to 5. 
+
+## Plotting 
+
+We use a modified version of a plotting function that allows us to visualise the effects. For this, we use the base R plotting functions
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+par(oma=c(0, 0, 0, 6), mgp=c(2, 1, 0))
+xlim = c(min(mdl.clmm$beta), max(mdl.clmm$beta))
+ylim = c(0,1)
+plot(0,0,xlim=xlim, ylim=ylim, type="n", ylab=expression(Probability), xlab="", xaxt = "n",main="Predicted curves - LabPhon Questionnaire",cex=2,cex.lab=1.5,cex.main=1.5,cex.axis=1.5)
+axis(side = 1, at = c(0,mdl.clmm$beta),labels = levels(rating$Questions), las=2,cex=2,cex.lab=1.5,cex.axis=1.5)
+xs = seq(xlim[1], xlim[2], length.out=100)
+
+#+CI 
+lines(xs, plogis(mdl.clmm$Theta[1]+(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), col='red')
+lines(xs, plogis(mdl.clmm$Theta[2]+(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs)-plogis(mdl.clmm$Theta[1]+(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), col='orange2')
+lines(xs, plogis(mdl.clmm$Theta[3]+(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs)-plogis(mdl.clmm$Theta[2]+(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs), col='yellow')
+lines(xs, plogis(mdl.clmm$Theta[4]+(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)-plogis(mdl.clmm$Theta[3]+(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs), col='turquoise')
+lines(xs, 1-(plogis(mdl.clmm$Theta[4]+(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)), col='blue')
+
+#-CI 
+lines(xs, plogis(mdl.clmm$Theta[1]-(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), col='red')
+lines(xs, plogis(mdl.clmm$Theta[2]-(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs)-plogis(mdl.clmm$Theta[1]-(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), col='orange2')
+lines(xs, plogis(mdl.clmm$Theta[3]-(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs)-plogis(mdl.clmm$Theta[2]-(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs), col='yellow')
+lines(xs, plogis(mdl.clmm$Theta[4]-(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)-plogis(mdl.clmm$Theta[3]-(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs), col='turquoise')
+lines(xs, 1-(plogis(mdl.clmm$Theta[4]-(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)), col='blue')
+
+# fill area around CI using c(x, rev(x)), c(y2, rev(y1))
+polygon(c(xs, rev(xs)),
+        c(plogis(mdl.clmm$Theta[1]+(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), rev(plogis(mdl.clmm$Theta[1]-(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs))), col = "gray90")
+
+polygon(c(xs, rev(xs)),
+        c(plogis(mdl.clmm$Theta[2]+(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs)-plogis(mdl.clmm$Theta[1]+(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), rev(plogis(mdl.clmm$Theta[2]-(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs)-plogis(mdl.clmm$Theta[1]-(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs))), col = "gray90")
+
+
+polygon(c(xs, rev(xs)),
+        c(plogis(mdl.clmm$Theta[3]+(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs)-plogis(mdl.clmm$Theta[2]+(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs), rev(plogis(mdl.clmm$Theta[3]-(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs)-plogis(mdl.clmm$Theta[2]-(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs))), col = "gray90")
+
+polygon(c(xs, rev(xs)),
+        c(plogis(mdl.clmm$Theta[4]+(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)-plogis(mdl.clmm$Theta[3]+(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs), rev(plogis(mdl.clmm$Theta[4]-(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)-plogis(mdl.clmm$Theta[3]-(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs))), col = "gray90")
+
+        
+polygon(c(xs, rev(xs)),
+        c(1-(plogis(mdl.clmm$Theta[4]-(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)), rev(1-(plogis(mdl.clmm$Theta[4]+(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)))), col = "gray90")       
+
+lines(xs, plogis(mdl.clmm$Theta[1] - xs), col='red', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[2] - xs)-plogis(mdl.clmm$Theta[1] - xs), col='orange2', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[3] - xs)-plogis(mdl.clmm$Theta[2] - xs), col='yellow', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[4] - xs)-plogis(mdl.clmm$Theta[3] - xs), col='turquoise', lwd=2.0)
+lines(xs, 1-(plogis(mdl.clmm$Theta[4] - xs)), col='blue', lwd=2.0)
+
+
+abline(v=c(0,mdl.clmm$beta),lty=3)
+abline(h=0, lty="dashed")
+abline(h=0.2, lty="dashed")
+abline(h=0.4, lty="dashed")
+abline(h=0.6, lty="dashed")
+abline(h=0.8, lty="dashed")
+abline(h=1, lty="dashed")
+legend(par('usr')[2], par('usr')[4], bty='n', xpd=NA,lty=1, col=c("red", "orange2", "yellow", "turquoise", "blue", lwd=2.0), 
+       legend=c("Novice", "Beginnner", "Intermediate", "Advanced", "Competent"))
+
+```
+
+
+
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+png(filename = "rating.png", width = 20, height = 15, units = "cm", res = 300)
+
+par(oma=c(0, 0, 0, 6), mgp=c(2, 1, 0))
+xlim = c(min(mdl.clmm$beta), max(mdl.clmm$beta))
+ylim = c(0,1)
+plot(0,0,xlim=xlim, ylim=ylim, type="n", ylab=expression(Probability), xlab="", xaxt = "n",main="Predicted curves - LabPhon Questionnaire",cex=2,cex.lab=1.5,cex.main=1.5,cex.axis=1.5)
+axis(side = 1, at = c(0,mdl.clmm$beta),labels = levels(rating$Questions), las=2,cex=2,cex.lab=1.5,cex.axis=1.5)
+xs = seq(xlim[1], xlim[2], length.out=100)
+lines(xs, plogis(mdl.clmm$Theta[1] - xs), col='red', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[2] - xs)-plogis(mdl.clmm$Theta[1] - xs), col='orange2', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[3] - xs)-plogis(mdl.clmm$Theta[2] - xs), col='yellow', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[4] - xs)-plogis(mdl.clmm$Theta[3] - xs), col='turquoise', lwd=2.0)
+lines(xs, 1-(plogis(mdl.clmm$Theta[4] - xs)), col='blue', lwd=2.0)
+abline(v=c(0,mdl.clmm$beta),lty=3)
+abline(h=0, lty="dashed")
+abline(h=0.2, lty="dashed")
+abline(h=0.4, lty="dashed")
+abline(h=0.6, lty="dashed")
+abline(h=0.8, lty="dashed")
+abline(h=1, lty="dashed")
+legend(par('usr')[2], par('usr')[4], bty='n', xpd=NA,lty=1, col=c("red", "orange2", "yellow", "turquoise", "blue", lwd=2.0), 
+       legend=c("Novice", "Beginnner", "Intermediate", "Advanced", "Competent"))
+
+dev.off()
+```
+
+```{r}
+png(filename = "rating2.png", width = 20, height = 15, units = "cm", res = 300)
+
+par(oma=c(0, 0, 0, 6), mgp=c(2, 1, 0))
+xlim = c(min(mdl.clmm$beta), max(mdl.clmm$beta))
+ylim = c(0,1)
+plot(0,0,xlim=xlim, ylim=ylim, type="n", ylab=expression(Probability), xlab="", xaxt = "n",main="Predicted curves - LabPhon Questionnaire",cex=2,cex.lab=1.5,cex.main=1.5,cex.axis=1.5)
+axis(side = 1, at = c(0,mdl.clmm$beta),labels = levels(rating$Questions), las=2,cex=2,cex.lab=1.5,cex.axis=1.5)
+xs = seq(xlim[1], xlim[2], length.out=100)
+
+#+CI 
+lines(xs, plogis(mdl.clmm$Theta[1]+(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), col='red')
+lines(xs, plogis(mdl.clmm$Theta[2]+(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs)-plogis(mdl.clmm$Theta[1]+(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), col='orange2')
+lines(xs, plogis(mdl.clmm$Theta[3]+(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs)-plogis(mdl.clmm$Theta[2]+(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs), col='yellow')
+lines(xs, plogis(mdl.clmm$Theta[4]+(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)-plogis(mdl.clmm$Theta[3]+(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs), col='turquoise')
+lines(xs, 1-(plogis(mdl.clmm$Theta[4]+(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)), col='blue')
+
+#-CI 
+lines(xs, plogis(mdl.clmm$Theta[1]-(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), col='red')
+lines(xs, plogis(mdl.clmm$Theta[2]-(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs)-plogis(mdl.clmm$Theta[1]-(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), col='orange2')
+lines(xs, plogis(mdl.clmm$Theta[3]-(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs)-plogis(mdl.clmm$Theta[2]-(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs), col='yellow')
+lines(xs, plogis(mdl.clmm$Theta[4]-(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)-plogis(mdl.clmm$Theta[3]-(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs), col='turquoise')
+lines(xs, 1-(plogis(mdl.clmm$Theta[4]-(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)), col='blue')
+
+# fill area around CI using c(x, rev(x)), c(y2, rev(y1))
+polygon(c(xs, rev(xs)),
+        c(plogis(mdl.clmm$Theta[1]+(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), rev(plogis(mdl.clmm$Theta[1]-(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs))), col = "gray90")
+
+polygon(c(xs, rev(xs)),
+        c(plogis(mdl.clmm$Theta[2]+(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs)-plogis(mdl.clmm$Theta[1]+(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs), rev(plogis(mdl.clmm$Theta[2]-(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs)-plogis(mdl.clmm$Theta[1]-(summary(mdl.clmm)$coefficient[,2][[1]]/1.96) - xs))), col = "gray90")
+
+
+polygon(c(xs, rev(xs)),
+        c(plogis(mdl.clmm$Theta[3]+(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs)-plogis(mdl.clmm$Theta[2]+(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs), rev(plogis(mdl.clmm$Theta[3]-(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs)-plogis(mdl.clmm$Theta[2]-(summary(mdl.clmm)$coefficient[,2][[2]]/1.96) - xs))), col = "gray90")
+
+polygon(c(xs, rev(xs)),
+        c(plogis(mdl.clmm$Theta[4]+(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)-plogis(mdl.clmm$Theta[3]+(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs), rev(plogis(mdl.clmm$Theta[4]-(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)-plogis(mdl.clmm$Theta[3]-(summary(mdl.clmm)$coefficient[,2][[3]]/1.96) - xs))), col = "gray90")
+
+        
+polygon(c(xs, rev(xs)),
+        c(1-(plogis(mdl.clmm$Theta[4]-(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)), rev(1-(plogis(mdl.clmm$Theta[4]+(summary(mdl.clmm)$coefficient[,2][[4]]/1.96) - xs)))), col = "gray90")       
+
+lines(xs, plogis(mdl.clmm$Theta[1] - xs), col='red', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[2] - xs)-plogis(mdl.clmm$Theta[1] - xs), col='orange2', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[3] - xs)-plogis(mdl.clmm$Theta[2] - xs), col='yellow', lwd=2.0)
+lines(xs, plogis(mdl.clmm$Theta[4] - xs)-plogis(mdl.clmm$Theta[3] - xs), col='turquoise', lwd=2.0)
+lines(xs, 1-(plogis(mdl.clmm$Theta[4] - xs)), col='blue', lwd=2.0)
+
+
+abline(v=c(0,mdl.clmm$beta),lty=3)
+abline(h=0, lty="dashed")
+abline(h=0.2, lty="dashed")
+abline(h=0.4, lty="dashed")
+abline(h=0.6, lty="dashed")
+abline(h=0.8, lty="dashed")
+abline(h=1, lty="dashed")
+legend(par('usr')[2], par('usr')[4], bty='n', xpd=NA,lty=1, col=c("red", "orange2", "yellow", "turquoise", "blue", lwd=2.0), 
+       legend=c("Novice", "Beginnner", "Intermediate", "Advanced", "Competent"))
+dev.off()
+
+```
+
+
+# Word Cloud and network analysis
+
+For word clouds, we use a technique from Natural Language Processing (NLP) to identify patterns in your responses to each of the free comments parts. 
+After processing the data, we obtain plots of the results
+
+## Q03_Research Interests
+
+### Reading file
+
+```{r}
+text <- readLines("Questionnaire_LabPhon_free1.txt")
+docs <- Corpus(VectorSource(text))
+# You can use the code below to look at the uploaded file
+# Not run for anonymity 
+## inspect(docs)
+
+```
+
+### Transformation
+
+
+
+```{r}
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removeNumbers)
+docs <- tm_map(docs, removeWords, stopwords("english"))
+docs <- tm_map(docs, removePunctuation)
+docs <- tm_map(docs, stripWhitespace)
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'contrôle', replacement = 'control')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'français', replacement = 'French')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'mémoire', replacement = 'dissertation')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'exécutif', replacement = 'executif')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'lhypothèse', replacement = 'hypothesis')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'étude', replacement = 'study')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'avancée', replacement = 'advanced')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'très', replacement = 'very')
+
+
+```
+
+
+
+```{r}
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 10)
+```
+
+
+### WordCloud
+
+```{r}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=300, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+
+```{r}
+png(filename = "Cloud1.png", width = 20, height = 15, units = "cm", res = 300)
+
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=300, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+dev.off()
+```
+
+
+### Network analysis
+
+```{r}
+toks <- tokens(text)
+  
+toks
+
+toks2 <- toks %>% 
+  tokens(remove_punct = TRUE, remove_symbols = TRUE, 
+         remove_numbers = TRUE) %>%
+  tokens_remove(stopwords("en"), padding = FALSE) %>% 
+  tokens_tolower()
+
+toks2
+
+fcmat_toks2 <- toks2 %>%
+  fcm(context = "window", count = "weighted")
+fcmat_toks2
+
+feat <- names(topfeatures(fcmat_toks2, 40, scheme = "count"))
+
+feat
+
+fcmat_toks_subset <- fcmat_toks2 %>%
+fcm_select(feat)
+textplot_network(fcmat_toks_subset)
+
+
+```
+
+
+
+```{r}
+png(filename = "Network1.png", width = 20, height = 15, units = "cm", res = 300)
+
+textplot_network(fcmat_toks_subset)
+dev.off()
+
+
+```
+
+
+## Q04_Programme/level
+
+### Reading file
+
+```{r}
+text <- readLines("Questionnaire_LabPhon_free2.txt")
+docs <- Corpus(VectorSource(text))
+# You can use the code below to look at the uploaded file
+# Not run for anonymity 
+## inspect(docs)
+```
+
+### Transformation
+
+
+
+```{r}
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removeNumbers)
+docs <- tm_map(docs, removeWords, stopwords("english"))
+docs <- tm_map(docs, removePunctuation)
+docs <- tm_map(docs, stripWhitespace)
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'université', replacement = 'university')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'phonétique', replacement = 'phonetics')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'phonologie', replacement = 'phonology')
+
+```
+
+
+
+```{r}
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 10)
+```
+
+
+### WordCloud
+
+```{r}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=300, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+
+
+```{r}
+png(filename = "Cloud2.png", width = 20, height = 15, units = "cm", res = 300)
+
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=300, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+dev.off()
+```
+
+
+### Network analysis
+
+```{r}
+toks <- tokens(text)
+  
+toks
+
+toks2 <- toks %>% 
+  tokens(remove_punct = TRUE, remove_symbols = TRUE, 
+         remove_numbers = TRUE) %>%
+  tokens_remove(stopwords("en"), padding = FALSE) %>% 
+  tokens_tolower()
+
+toks2
+
+fcmat_toks2 <- toks2 %>%
+  fcm(context = "window", count = "weighted")
+fcmat_toks2
+
+feat <- names(topfeatures(fcmat_toks2, 40, scheme = "count"))
+
+feat
+
+fcmat_toks_subset <- fcmat_toks2 %>%
+fcm_select(feat)
+textplot_network(fcmat_toks_subset)
+
+
+```
+
+
+
+```{r}
+png(filename = "Network2.png", width = 20, height = 15, units = "cm", res = 300)
+
+textplot_network(fcmat_toks_subset)
+dev.off()
+
+
+```
+
+
+
+## Q07_Other software/platform
+
+
+### Reading file
+
+```{r}
+text <- readLines("Questionnaire_LabPhon_free3.txt")
+docs <- Corpus(VectorSource(text))
+# You can use the code below to look at the uploaded file
+# Not run for anonymity 
+## inspect(docs)
+```
+
+### Transformation
+
+
+
+```{r}
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removeNumbers)
+docs <- tm_map(docs, removeWords, stopwords("english"))
+docs <- tm_map(docs, removePunctuation)
+docs <- tm_map(docs, stripWhitespace)
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'lycée', replacement = 'college')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'utilisé', replacement = 'used')
+docs <- tm_map(docs, content_transformer(gsub), pattern = 'experiments', replacement = 'experiment')
+
+docs <- tm_map(docs, removeWords, c("used", "use", "using"))
+
+
+```
+
+
+
+```{r}
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v), freq=v)
+head(d, 10)
+```
+
+
+### WordCloud
+
+```{r}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=300, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+
+```{r}
+png(filename = "Cloud3.png", width = 20, height = 15, units = "cm", res = 300)
+
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=300, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+dev.off()
+```
+
+
+### Network analysis
+
+```{r}
+toks <- tokens(text)
+  
+toks
+
+toks2 <- toks %>% 
+  tokens(remove_punct = TRUE, remove_symbols = TRUE, 
+         remove_numbers = TRUE) %>%
+  tokens_remove(stopwords("en"), padding = FALSE) %>% 
+  tokens_tolower()
+
+toks2
+
+fcmat_toks2 <- toks2 %>%
+  fcm(context = "window", count = "weighted")
+fcmat_toks2
+
+feat <- names(topfeatures(fcmat_toks2, 40, scheme = "count"))
+
+feat
+
+fcmat_toks_subset <- fcmat_toks2 %>%
+fcm_select(feat)
+textplot_network(fcmat_toks_subset)
+
+
+```
+
+
+
+```{r}
+png(filename = "Network3.png", width = 20, height = 15, units = "cm", res = 300)
+
+textplot_network(fcmat_toks_subset)
+dev.off()
+
+
+```
+
+
+# Session info
+
+```{r}
+sessionInfo()
+```
+
