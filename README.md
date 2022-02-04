@@ -1,6 +1,8 @@
 # R-Trainning
 This repository contains the full material I use in my teaching at the Université de Paris at various levels (undergraduate and Masters' degree).
 
+If using any code from here, please make sure to cite the page!
+
 It contains the following material
 1. An introduction to R [notebook](Session1_Intro_R.nb.html)
 2. Introduction to the `Tidyverse` [notebook](Session2_Intro_Tidyverse.nb.html)
