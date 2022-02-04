@@ -1,2 +1,19 @@
 # R-Trainning
 This repository contains the full material I use in my teaching at the Université de Paris at various levels (undergraduate and Masters' degree).
+
+It contains the following material
+1. An introduction to R
+2. Introduction to the `Tidyverse`
+3. Visualisation with the `Tidyverse` and `ggplot2`
+4. Introduction to inferential statistics (correlations, and linear model)
+5. Slightly more advanced inferential statistics: 
+  5.1. Linear model (for numeric outcomes)
+  5.2. Logistic regression (for binomial categorical outcomes), 
+  5.3. Signal Detection Theory (accuracy, precision, sensitivity, specificity, d prime, etc...)
+  5.4. Cumulative logit regression (for ordered categorical predictors obtained from Likert scales)
+  5.5. Linear Mixed-effects modelling
+6. Extra material containing (rating scales, word clouds and network analysis)
+
+For part 6, raw data are not shared here.
+
+Get in touch if there are any issues!
