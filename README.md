@@ -14,8 +14,6 @@ It contains the following material
     3. Signal Detection Theory (accuracy, precision, sensitivity, specificity, d prime, etc...)
     4. Cumulative logit regression (for ordered categorical predictors obtained from Likert scales)
     5. Linear Mixed-effects modelling
-6. Extra material containing (rating scales, word clouds and network analysis) [notebook](Extra_rating_wordClouds.nb.html)
 
-For part 6, raw data are not shared here.
 
 Get in touch if there are any issues!
