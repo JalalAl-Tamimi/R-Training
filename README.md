@@ -5,7 +5,7 @@ If using any code from here, please make sure to cite the page!
 
 It contains the following material
 1. An introduction to R [notebook](Session1_Intro_R.nb.html)
-2. Introduction to the `Tidyverse` [notebook](Session2_Intro_Tidyverse.nb.html)
+2. Introduction to the `Tidyverse` [notebook](Session2_Intro_Tidyverse.nb.html) [images folder](images/)
 3. Visualisation with the `Tidyverse` and `ggplot2` [notebook](Session3_Intro_Tidyverse_Visualisation.nb.html)
 4. Introduction to inferential statistics (correlations, and linear model) [notebook](Session4_Intro_Tidyverse_Stats.nb.html)
 5. Slightly more advanced inferential statistics: [notebook](Session5-AnalysingData_advanced.nb.html) [dataset1](grammatical.csv) [dataset2](rating.csv)
