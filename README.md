@@ -1,4 +1,4 @@
-# R-Trainning
+# R-Training
 This repository contains the full material I use in my teaching at the Université de Paris at various levels (undergraduate and Masters' degree).
 
 If using any code from here, please make sure to cite the page!
