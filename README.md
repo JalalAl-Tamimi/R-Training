@@ -8,7 +8,7 @@ It contains the following material
 2. Introduction to the `Tidyverse` [notebook](Session2_Intro_Tidyverse.nb.html)
 3. Visualisation with the `Tidyverse` and `ggplot2` [notebook](Session3_Intro_Tidyverse_Visualisation.nb.html)
 4. Introduction to inferential statistics (correlations, and linear model) [notebook](Session4_Intro_Tidyverse_Stats.nb.html)
-5. Slightly more advanced inferential statistics: [notebook](Session5-AnalysingData_advanced.nb.html)
+5. Slightly more advanced inferential statistics: [notebook](Session5-AnalysingData_advanced.nb.html) [dataset1](grammatical.csv) [dataset2](rating.csv)
     1. Linear model (for numeric outcomes)
     2. Logistic regression (for binomial categorical outcomes), 
     3. Signal Detection Theory (accuracy, precision, sensitivity, specificity, d prime, etc...)
