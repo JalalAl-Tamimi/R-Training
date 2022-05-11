@@ -14,8 +14,9 @@ It contains the following material
     3. Signal Detection Theory (accuracy, precision, sensitivity, specificity, d prime, etc...)
     4. Cumulative logit regression (for ordered categorical predictors obtained from Likert scales)
     5. Linear Mixed-effects modelling
-    6. Decision Trees
-    7. Random Forests
+    6. Principal Component Analysis (PCA)
+    7. Decision Trees
+    8. Random Forests grown via: i) conditional inference trees, ii) permutation tests as implemented in ranger and iii) following the tidymodels approach
 
 
 Get in touch if there are any issues!
