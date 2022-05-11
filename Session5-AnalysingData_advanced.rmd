@@ -1,8 +1,8 @@
 ---
-title: "Session 5 - Analysing data - Advanced"
+title: "Session 5: Advanced statistical analyses"
 author:
   name: Jalal Al-Tamimi
-  affiliation: Université de Paris
+  affiliation: Université Paris Cité
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
   html_notebook:
@@ -15,44 +15,16 @@ output:
       fig_crop: no
 ---
 
-
-# Loading packages  
+# Loading packages 
 
 ```{r warning=FALSE, message=FALSE, error=FALSE}
 ## Use the code below to check if you have all required packages installed. If some are not installed already, the code below will install these. If you have all packages installed, then you could load them with the second code.
-requiredPackages = c('tidyverse', 'broom', 'knitr', 'Hmisc', 'corrplot', 'lme4', 'lmerTest', 'party', 'ranger', 'tidymodels', 'pROC', 'varImp', 'lattice', 'vip', 'emmeans', 'ggsignif', 'PresenceAbsence', 'languageR', 'ordinal')
+requiredPackages = c('tidyverse', 'broom', 'knitr', 'Hmisc', 'corrplot', 'lme4', 'lmerTest', 'party', 'ranger','doFuture',  'tidymodels', 'pROC', 'varImp', 'lattice', 'vip', 'emmeans', 'ggsignif', 'PresenceAbsence', 'languageR', 'FactoMineR', 'factoextra', 'RColorBrewer', 'scatterplot3d', 'cowplot')
 for(p in requiredPackages){
   if(!require(p,character.only = TRUE)) install.packages(p)
   library(p,character.only = TRUE)
 }
 ```
-
-
-In this session, we will look at basic functions in R that will help us in running some inferential statistics. These will help us to evaluate the relationship between one (or more) predictor(s) (independent variable) and an outcome (dependent variable). 
-
-It is important to know the class of the outcome before doing any pre-data analyses or inferential statistics. Outcome classes can be one of:
-
-1. `Numeric`: As an example, we have length/width of leaf; height of mountain; fundamental frequency of the voice; etc. These are `true` numbers and we can use summaries, t-tests, linear models, etc. 
-
-2. `Categorical` (Unordered): Observations for two or more categories. As an example, we can have gender of a speaker (male or female); responses to a True vs False perception tests; Colour (unordered) categorisation, e.g., red, blue, yellow, orange, etc.. For these we can use a Generalised Linear Model (binomial or multinomial) or a simple chi-square test. Count data are numbers related to a category. But these should be analysed using a poisson logistic regression
-
-3. `Categorical` (Ordered): When you run a rating experiment, where the outcome is either `numeric` (i.e., 1, 2, 3, 4, 5) or `categories` (i.e., disagree, neutral, agree). The `numeric` option is NOT a true number as for the participant, these are categories. Cumulative Logit models (or Generalised Linear Model with a cumulative function) are used. The mean is meaningless here, and the median is a preferred descriptive statistic.
-
-The content will be split into 5 sections. Some of you will only ever look at some of these, while others may need to use all. Look at the section that works best for your data.
-
-1. Pre-data analyses: We will look at summaries, plotting, correlations
-
-2. Statistical Analyses: from t-test and ANOVA, to Linear Models: model estimation, understanding coefficients, residuals, and predictions
-
-3. We then move to Generalised Linear Models, with Logistic Regression (with a binomial categorical outcome) and touch upon Signal Detection Theory for estimating accuracy, biases, with sensitivity and specificity measures.
-
-4. Dealing with rating data using Generalised Linear Models, with a Cumulative Logit function
-
-5. Linear Mixed effects Models: Introduction to random effects and how to deal with these
-
-6. Decision trees: Running our first decision tree
-
-7. Random Forests: We move to random forests and expending to other packages
 
 
 # Correlation tests {.tabset .tabset-fade .tabset-pills}
@@ -375,7 +347,6 @@ The results above tell us that all predictors used are significantly different.
 
 
 
-
 # Generalised Linear Models {.tabset .tabset-fade .tabset-pills}
 
 Here we will look at an example when the outcome is binary. This simulated data is structured as follows. We asked one participant to listen to 165 sentences, and to judge whether these are "grammatical" or "ungrammatical". There were 105 sentences that were "grammatical" and 60 "ungrammatical". This fictitious example can apply in any other situation. Let's think Geography: 165 lands: 105 "flat" and 60 "non-flat", etc. This applies to any case where you need to "categorise" the outcome into two groups. 
@@ -391,7 +362,7 @@ str(grammatical)
 head(grammatical)
 ```
 
-## GLM
+## GLM - Categorical predictors
 
 Let's run a first GLM (Generalised Linear Model). A GLM uses a special family "binomial" as it assumes the outcome has a binomial distribution. In general, results from a Logistic Regression are close to what we get from SDT (see above).
 
@@ -459,6 +430,143 @@ grammatical %>%
     coord_cartesian(ylim = c(0,1))+
     scale_x_discrete(limits = c("Ungrammatical", "Grammatical"))
 ```
+
+
+## GLM - Numeric predictors {.tabset .tabset-fade .tabset-pills}
+
+In this example, we will run a GLM model using a similar technique to that used in `Al-Tamimi (2017)` and `Baumann & Winter (2018)`. We use the package `LanguageR` and the dataset `English`.
+
+
+In the model above, we used the equation as lm(RTlexdec ~ AgeSubject). We were interested in examining the impact of age of subject on reaction time in a lexical decision task. In this section, we are interested in understanding how reaction time allows to differentiate the participants based on their age. We use `AgeSubject` as our outcome and `RTlexdec` as our predictor using the equation glm(AgeSubject ~ RTlexdec). We usually can use `RTlexdec` as is, but due to a possible quasi separation and the fact that we may want to compare coefficients using multiple acoustic metrics, we will z-score our predictor. We run below two models, with and without z-scoring
+
+For the glm model, we need to specify `family = "binomial"`.
+
+### Without z-scoring of predictor
+
+#### Model estimation
+
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+mdl.glm2 <- english2 %>% 
+  glm(AgeSubject ~ RTlexdec, data = ., family = "binomial")
+
+tidy(mdl.glm2) %>% 
+  select(term, estimate) %>% 
+  mutate(estimate = round(estimate, 3))
+# to only get the coefficients
+mycoef2 <- tidy(mdl.glm2) %>% pull(estimate)
+```
+
+#### LogOdds to proportions
+
+If you want to talk about the percentage "accuracy" of our model, then we can transform our loggodds into proportions.
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+plogis(mycoef2[1])
+plogis(mycoef2[1] + mycoef2[2])
+```
+
+#### Plotting
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+english2 <- english2 %>% 
+  mutate(prob = predict(mdl.glm2, type = "response"))
+english2 %>% 
+  ggplot(aes(x = as.numeric(AgeSubject), y = prob)) +
+  geom_point() +
+  geom_smooth(method = "glm", 
+    method.args = list(family = "binomial"), 
+    se = T) + theme_bw(base_size = 20)+
+    labs(y = "Probability", x = "")+
+    coord_cartesian(ylim = c(0,1))+
+    scale_x_discrete(limits = c("Young", "Old"))
+```
+ 
+ 
+The plot above show how the two groups differ using a glm. The results point to an overall increase in the proportion of reaction time when moving from the "Young" to the "Old" group.
+Let's use z-scoring next
+
+
+### With z-scoring of predictor
+
+#### Model estimation
+
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+english2 <- english2 %>% 
+  mutate(`RTlexdec_z` = scale(RTlexdec, center = TRUE, scale = TRUE))
+
+english2['RTlexdec_z'] <- as.data.frame(scale(english2$RTlexdec))
+
+
+
+mdl.glm3 <- english2 %>% 
+  glm(AgeSubject ~ RTlexdec_z, data = ., family = "binomial")
+
+tidy(mdl.glm3) %>% 
+  select(term, estimate) %>% 
+  mutate(estimate = round(estimate, 3))
+# to only get the coefficients
+mycoef2 <- tidy(mdl.glm3) %>% pull(estimate)
+```
+
+#### LogOdds to proportions
+
+If you want to talk about the percentage "accuracy" of our model, then we can transform our loggodds into proportions. 
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+plogis(mycoef2[1])
+plogis(mycoef2[1] + mycoef2[2])
+```
+
+#### Plotting
+
+##### Normal
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+english2 <- english2 %>% 
+  mutate(prob = predict(mdl.glm3, type = "response"))
+english2 %>% 
+  ggplot(aes(x = as.numeric(AgeSubject), y = prob)) +
+  geom_point() +
+  geom_smooth(method = "glm", 
+    method.args = list(family = "binomial"), 
+    se = T) + theme_bw(base_size = 20)+
+    labs(y = "Probability", x = "")+
+    coord_cartesian(ylim = c(0,1))+
+    scale_x_discrete(limits = c("Young", "Old"))
+```
+ 
+ 
+We obtain the exact same plots, but the model estimations are different. Let's use another type of predictions
+
+
+##### z-scores
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+z_vals <- seq(-3, 3, 0.01)
+
+dfPredNew <- data.frame(RTlexdec_z = z_vals)
+
+## store the predicted probabilities for each value of RTlexdec_z
+pp <- cbind(dfPredNew, prob = predict(mdl.glm3, newdata = dfPredNew, type = "response"))
+
+pp %>% 
+  ggplot(aes(x = RTlexdec_z, y = prob)) +
+  geom_point() +
+  theme_bw(base_size = 20)+
+    labs(y = "Probability", x = "")+
+    coord_cartesian(ylim = c(0,1))+
+  scale_x_continuous(breaks = c(-3, -2, -1, 0, 1, 2, 3))
+```
+ 
+ 
+We obtain the exact same plots, but the model estimations are different. 
+
+
+
+
+
 
 ## Accuracy and Signal Detection Theory
 
@@ -588,6 +696,7 @@ coef(glm(response ~ grammaticality, data = grammatical, family = binomial(probit
 
 
 
+
 ## GLM: Other distributions
 
 If your data does not fit a binomial distribution, and is a multinomial (i.e., three or more response categories) or poisson (count data), then you need to use the glm function with a specific family function. 
@@ -605,150 +714,6 @@ If your data does not fit a binomial distribution, and is a multinomial (i.e., t
 
 ```
 
-
-
-# Cumulative Logit Link Models {.tabset .tabset-fade .tabset-pills}
-
-These models work perfectly with rating data. Ratings are inherently ordered, 1, 2, ... n, and expect to observe an increase (or decrease) in overall ratings from 1 to n. To demonstrate this, we will use an example using the package "ordinal". Data were from a rating experiment where six participants rated the percept of nasality in the production of particular consonants in Arabic. The data came from nine producing subjects. The ratings were from 1 to 5. This example can apply to any study, e.g., rating grammaticality of sentences, rating how positive the sentiments are in a article, interview responses, etc.
-
-## Importing and pre-processing
-
-We start by importing the data and process it. We change the reference level in the predictor
-
-```{r warning=FALSE, message=FALSE, error=FALSE}
-rating <- read_csv("rating.csv")
-rating
-rating <- rating %>% 
-  mutate(Response = factor(Response),
-         Context = factor(Context)) %>% 
-  mutate(Context = relevel(Context, "isolation"))
-rating
-```
-
-## Our first model
-
-We run our first clm model as a simple, i.e., with no random effects
-
-```{r warning=FALSE, message=FALSE, error=FALSE}
-mdl.clm <- rating %>% 
-  clm(Response ~ Context, data = .)
-summary(mdl.clm)
-```
-
-
-## Testing significance 
-
-We can evaluate whether "Context" improves the model fit, by comparing a null model with our model. Of course "Context" is improving the model fit.
-
-```{r warning=FALSE, message=FALSE, error=FALSE}
-mdl.clm.Null <- rating %>% 
-  clm(Response ~ 1, data = .)
-anova(mdl.clm, mdl.clm.Null)
-
-```
-
-## Interpreting a cumulative model
-
-As a way to interpret the model, we can look at the coefficients and make sense of the results. A CLM model is a Logistic model with a cumulative effect. The "Coefficients" are the estimates for each level of the fixed effect; the "Threshold coefficients" are those of the response. For the former, a negative coefficient indicates a negative association with the response; and a positive is positively associated with the response. The p values are indicating the significance of each level. For the "Threshold coefficients", we can see the cumulative effects of ratings 1|2, 2|3, 3|4 and 4|5 which indicate an overall increase in the ratings from 1 to 5. 
-
-## Plotting 
-
-### No confidence intervals
-
-We use a modified version of a plotting function that allows us to visualise the effects. For this, we use the base R plotting functions. The version below is without confidence intervals.
-
-
-```{r warning=FALSE, message=FALSE, error=FALSE}
-par(oma=c(1, 0, 0, 3),mgp=c(2, 1, 0))
-xlimNas = c(min(mdl.clm$beta), max(mdl.clm$beta))
-ylimNas = c(0,1)
-plot(0,0,xlim=xlimNas, ylim=ylimNas, type="n", ylab=expression(Probability), xlab="", xaxt = "n",main="Predicted curves - Nasalisation",cex=2,cex.lab=1.5,cex.main=1.5,cex.axis=1.5)
-axis(side = 1, at = c(0,mdl.clm$beta),labels = levels(rating$Context), las=2,cex=2,cex.lab=1.5,cex.axis=1.5)
-xsNas = seq(xlimNas[1], xlimNas[2], length.out=100)
-lines(xsNas, plogis(mdl.clm$Theta[1] - xsNas), col='black')
-lines(xsNas, plogis(mdl.clm$Theta[2] - xsNas)-plogis(mdl.clm$Theta[1] - xsNas), col='red')
-lines(xsNas, plogis(mdl.clm$Theta[3] - xsNas)-plogis(mdl.clm$Theta[2] - xsNas), col='green')
-lines(xsNas, plogis(mdl.clm$Theta[4] - xsNas)-plogis(mdl.clm$Theta[3] - xsNas), col='orange')
-lines(xsNas, 1-(plogis(mdl.clm$Theta[4] - xsNas)), col='blue')
-abline(v=c(0,mdl.clm$beta),lty=3)
-abline(h=0, lty="dashed")
-abline(h=0.2, lty="dashed")
-abline(h=0.4, lty="dashed")
-abline(h=0.6, lty="dashed")
-abline(h=0.8, lty="dashed")
-abline(h=1, lty="dashed")
-
-legend(par('usr')[2], par('usr')[4], bty='n', xpd=NA,lty=1, col=c("black", "red", "green", "orange", "blue"), 
-       legend=c("Oral", "2", "3", "4", "Nasal"),cex=0.75)
-
-```
-
-
-### With confidence intervals
-
-Here is an attempt to add the 97.5% confidence intervals to these plots. This is an experimantal attempt and any feedback is welcome!
-
-
-```{r warning=FALSE, message=FALSE, error=FALSE}
-par(oma=c(1, 0, 0, 3),mgp=c(2, 1, 0))
-xlimNas = c(min(mdl.clm$beta), max(mdl.clm$beta))
-ylimNas = c(0,1)
-plot(0,0,xlim=xlimNas, ylim=ylimNas, type="n", ylab=expression(Probability), xlab="", xaxt = "n",main="Predicted curves - Nasalisation",cex=2,cex.lab=1.5,cex.main=1.5,cex.axis=1.5)
-axis(side = 1, at = c(0,mdl.clm$beta),labels = levels(rating$Context), las=2,cex=2,cex.lab=1.5,cex.axis=1.5)
-xsNas = seq(xlimNas[1], xlimNas[2], length.out=100)
-
-
-#+CI 
-lines(xsNas, plogis(mdl.clm$Theta[1]+(summary(mdl.clm)$coefficient[,2][[1]]/1.96) - xsNas), col='black')
-lines(xsNas, plogis(mdl.clm$Theta[2]+(summary(mdl.clm)$coefficient[,2][[2]]/1.96) - xsNas)-plogis(mdl.clm$Theta[1]+(summary(mdl.clm)$coefficient[,2][[1]]/1.96) - xsNas), col='red')
-lines(xsNas, plogis(mdl.clm$Theta[3]+(summary(mdl.clm)$coefficient[,2][[3]]/1.96) - xsNas)-plogis(mdl.clm$Theta[2]+(summary(mdl.clm)$coefficient[,2][[2]]/1.96) - xsNas), col='green')
-lines(xsNas, plogis(mdl.clm$Theta[4]+(summary(mdl.clm)$coefficient[,2][[4]]/1.96) - xsNas)-plogis(mdl.clm$Theta[3]+(summary(mdl.clm)$coefficient[,2][[3]]/1.96) - xsNas), col='orange')
-lines(xsNas, 1-(plogis(mdl.clm$Theta[4]+(summary(mdl.clm)$coefficient[,2][[4]]/1.96) - xsNas)), col='blue')
-
-#-CI 
-lines(xsNas, plogis(mdl.clm$Theta[1]-(summary(mdl.clm)$coefficient[,2][[1]]/1.96) - xsNas), col='black')
-lines(xsNas, plogis(mdl.clm$Theta[2]-(summary(mdl.clm)$coefficient[,2][[2]]/1.96) - xsNas)-plogis(mdl.clm$Theta[1]-(summary(mdl.clm)$coefficient[,2][[1]]/1.96) - xsNas), col='red')
-lines(xsNas, plogis(mdl.clm$Theta[3]-(summary(mdl.clm)$coefficient[,2][[3]]/1.96) - xsNas)-plogis(mdl.clm$Theta[2]-(summary(mdl.clm)$coefficient[,2][[2]]/1.96) - xsNas), col='green')
-lines(xsNas, plogis(mdl.clm$Theta[4]-(summary(mdl.clm)$coefficient[,2][[4]]/1.96) - xsNas)-plogis(mdl.clm$Theta[3]-(summary(mdl.clm)$coefficient[,2][[3]]/1.96) - xsNas), col='orange')
-lines(xsNas, 1-(plogis(mdl.clm$Theta[4]-(summary(mdl.clm)$coefficient[,2][[4]]/1.96) - xsNas)), col='blue')
-
-# fill area around CI using c(x, rev(x)), c(y2, rev(y1))
-polygon(c(xsNas, rev(xsNas)),
-        c(plogis(mdl.clm$Theta[1]+(summary(mdl.clm)$coefficient[,2][[1]]/1.96) - xsNas), rev(plogis(mdl.clm$Theta[1]-(summary(mdl.clm)$coefficient[,2][[1]]/1.96) - xsNas))), col = "gray90")
-
-polygon(c(xsNas, rev(xsNas)),
-        c(plogis(mdl.clm$Theta[2]+(summary(mdl.clm)$coefficient[,2][[2]]/1.96) - xsNas)-plogis(mdl.clm$Theta[1]+(summary(mdl.clm)$coefficient[,2][[1]]/1.96) - xsNas), rev(plogis(mdl.clm$Theta[2]-(summary(mdl.clm)$coefficient[,2][[2]]/1.96) - xsNas)-plogis(mdl.clm$Theta[1]-(summary(mdl.clm)$coefficient[,2][[1]]/1.96) - xsNas))), col = "gray90")
-
-
-polygon(c(xsNas, rev(xsNas)),
-        c(plogis(mdl.clm$Theta[3]+(summary(mdl.clm)$coefficient[,2][[3]]/1.96) - xsNas)-plogis(mdl.clm$Theta[2]+(summary(mdl.clm)$coefficient[,2][[2]]/1.96) - xsNas), rev(plogis(mdl.clm$Theta[3]-(summary(mdl.clm)$coefficient[,2][[3]]/1.96) - xsNas)-plogis(mdl.clm$Theta[2]-(summary(mdl.clm)$coefficient[,2][[2]]/1.96) - xsNas))), col = "gray90")
-
-polygon(c(xsNas, rev(xsNas)),
-        c(plogis(mdl.clm$Theta[4]+(summary(mdl.clm)$coefficient[,2][[4]]/1.96) - xsNas)-plogis(mdl.clm$Theta[3]+(summary(mdl.clm)$coefficient[,2][[3]]/1.96) - xsNas), rev(plogis(mdl.clm$Theta[4]-(summary(mdl.clm)$coefficient[,2][[4]]/1.96) - xsNas)-plogis(mdl.clm$Theta[3]-(summary(mdl.clm)$coefficient[,2][[3]]/1.96) - xsNas))), col = "gray90")
-
-        
-polygon(c(xsNas, rev(xsNas)),
-        c(1-(plogis(mdl.clm$Theta[4]-(summary(mdl.clm)$coefficient[,2][[4]]/1.96) - xsNas)), rev(1-(plogis(mdl.clm$Theta[4]+(summary(mdl.clm)$coefficient[,2][[4]]/1.96) - xsNas)))), col = "gray90")       
-
-lines(xsNas, plogis(mdl.clm$Theta[1] - xsNas), col='black')
-lines(xsNas, plogis(mdl.clm$Theta[2] - xsNas)-plogis(mdl.clm$Theta[1] - xsNas), col='red')
-lines(xsNas, plogis(mdl.clm$Theta[3] - xsNas)-plogis(mdl.clm$Theta[2] - xsNas), col='green')
-lines(xsNas, plogis(mdl.clm$Theta[4] - xsNas)-plogis(mdl.clm$Theta[3] - xsNas), col='orange')
-lines(xsNas, 1-(plogis(mdl.clm$Theta[4] - xsNas)), col='blue')
-abline(v=c(0,mdl.clm$beta),lty=3)
-
-abline(h=0, lty="dashed")
-abline(h=0.2, lty="dashed")
-abline(h=0.4, lty="dashed")
-abline(h=0.6, lty="dashed")
-abline(h=0.8, lty="dashed")
-abline(h=1, lty="dashed")
-
-
-legend(par('usr')[2], par('usr')[4], bty='n', xpd=NA,lty=1, col=c("black", "red", "green", "orange", "blue"), 
-       legend=c("Oral", "2", "3", "4", "Nasal"),cex=0.75)
-
-```
 
 # Linear Mixed-effects Models. Why random effects matter {.tabset .tabset-fade .tabset-pills}
 
@@ -967,6 +932,152 @@ The code below gives you an idea of how to specify these models
 ```
 
 
+# Principal Component Analyses (PCA)
+
+
+## Read dataset
+
+```{r}
+dfPharV2 <- read_csv("dfPharV2.csv")
+dfPharV2
+dfPharV2 <- dfPharV2 %>% 
+  mutate(context = factor(context, levels = c("Non-Guttural", "Guttural")))
+```
+
+
+## Model specification
+
+We use the package `FactoMineR` to run our PCA. We use all acoustic measures as predictors and our qualitative variable as the `context`.
+
+```{r}
+pcaDat1 <- PCA(dfPharV2,
+               quali.sup = 1, graph = TRUE,
+               scale.unit = TRUE, ncp = 5) 
+```
+
+
+
+## Results
+
+### Summary of results
+
+Based on the summary of results, we observe that the first 6 dimensions account 64% of the variance in the data; each contribute individually to more than 5% of the variance.
+
+
+```{r}
+summary(pcaDat1)
+```
+
+### Contribution of predictors and groups
+
+Below, we look at the contributions of the main 5 dimensions.
+
+```{r}
+dimdesc(pcaDat1, axes = 1:5, proba = 0.05)
+```
+
+
+### Contribution of variables
+
+We look next at the contribution of the top 10 predictors on each of the 6 dimensions
+
+#### Dimension 1
+
+```{r}
+fviz_contrib(pcaDat1, choice = "var", axes = 1, top = 10)
+```
+
+#### Dimension 2
+
+```{r}
+fviz_contrib(pcaDat1, choice = "var", axes = 2, top = 10)
+```
+
+#### Dimension 3
+
+```{r}
+fviz_contrib(pcaDat1, choice = "var", axes = 3, top = 10)
+```
+
+
+#### Dimension 4
+
+```{r}
+fviz_contrib(pcaDat1, choice = "var", axes = 4, top = 10)
+```
+
+
+#### Dimension 5
+
+```{r}
+fviz_contrib(pcaDat1, choice = "var", axes = 5, top = 10)
+```
+
+
+
+## Plots
+
+### PCA Individuals
+
+```{r}
+fviz_pca_ind(pcaDat1, col.ind = "cos2", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE # Avoid text overlapping (slow if many points)
+             )
+```
+
+### PCA Biplot 1:2
+
+```{r}
+fviz_pca_biplot(pcaDat1, repel = TRUE, habillage = dfPharV2$context, addEllipses = TRUE, title = "MSA - Biplot")
+```
+
+### PCA Biplot 3:4
+
+```{r}
+fviz_pca_biplot(pcaDat1, axes = c(3, 4), repel = TRUE, habillage = dfPharV2$context, addEllipses = TRUE, title = "MCA - Biplot")
+```
+
+
+## Clustering
+
+```{r}
+fviz_pca_ind(pcaDat1,
+             label = "none", # hide individual labels
+             habillage = dfPharV2$context, # color by groups
+             addEllipses = TRUE # Concentration ellipses
+             )
+```
+
+
+## 3-D By Groups
+
+```{r}
+coord <- pcaDat1$quali.sup$coord[1:2,0]
+coord
+#
+with(pcaDat1, {
+  s3d <- scatterplot3d(pcaDat1$quali.sup$coord[,1], pcaDat1$quali.sup$coord[,2], pcaDat1$quali.sup$coord[,3],        # x y and z axis
+                       color=c("blue", "red"), pch=19,        # filled blue and red circles
+                       type="h",                    # vertical lines to the x-y plane
+                       main="PCA 3-D Scatterplot",
+                       xlab="Dim1(37.7%)",
+                       ylab="",
+                       zlab="Dim3(11.4%)",
+                       #xlim = c(-1.5, 1.5), ylim = c(-1.5, 1.5), zlim = c(-0.8, 0.8)
+)
+  s3d.coords <- s3d$xyz.convert(pcaDat1$quali.sup$coord[,1], pcaDat1$quali.sup$coord[,2], pcaDat1$quali.sup$coord[,3]) # convert 3D coords to 2D projection
+  text(s3d.coords$x, s3d.coords$y,             # x and y coordinates
+       labels=row.names(coord), col = c("blue", "red"),              # text to plot
+       cex=1, pos=4)           # shrink text 50% and place to right of points)
+})
+dims <- par("usr")
+x <- dims[1]+ 0.8*diff(dims[1:2])
+y <- dims[3]+ 0.08*diff(dims[3:4])
+text(x, y, "Dim2(25.5%)", srt = 25,col="black")
+```
+
+
 
 
 # Decision Trees {.tabset .tabset-fade .tabset-pills}
@@ -983,16 +1094,6 @@ Decision trees via `ctree` does the following:
 4. Recursively repeat steps 1), 2). and 3).
 
 Let's see this in an example using the same dataset. To understand what the decision tree is doing, we will dissect it, by creating one tree with one predictor and move to the next.
-
-
-## Read dataset
-
-```{r}
-dfPharV2 <- read_csv("dfPharV2.csv")
-dfPharV2
-dfPharV2 <- dfPharV2 %>% 
-  mutate(context = factor(context, levels = c("Non-Guttural", "Guttural")))
-```
 
 
 ## GLM as a classification tool
@@ -1052,156 +1153,6 @@ pROC::plot.roc(roc.glm.Z2mnZ1, legacy.axes = TRUE)
 The model above was able to explain the difference between the two classes with an accuracy of 67.7%. It has a slightly low specificity (0.58) to detect `gutturals`, but a flighty high sensitivity (0.75) to reject the `non-gutturals`. Looking at the confusion matrix, we observe that both groups were relatively accurately identified, but we have relatively large errors (or confusions). The AUC is at 0.67, which is not too high. 
 
 Let's continue with GLM to evaluate it further. We start by running a correlation test to evaluate issues with GLM.
-
-## Issues with GLM
-
-Let's look at a new dataset that comes from phonetic research. This dataset is from my current work on the `phonetic basis of the guttural natural class in Levantine Arabic`. Acoustic analyses were conducted on multiple portions of the VCV sequence, and we report here the averaged results on the first half of V2. Acoustic metrics were obtained via VoiceSauce: various acoustic metrics of supralaryngeal (bark difference) and laryngeal (voice quality via amplitude harmonic differences, noise, energy) were obtained. A total of 23 different acoustic metrics were obtained from 10 participants. Here, we use the data from the first two participants for demonstration purposes (one male and one female). The grouping factor of interest is context with two levels: `guttural` vs `non-guttural`. Gutturals include  uvular, pharyngealised and pharyngeal consonants; non-gutturals include coronal plain, velar and glottal consonants.  
-
-The aim of the study was to evaluate whether the combination of the acoustic metrics provides support for a difference between the two classes of gutturals vs non-gutturals. 
-
-### Load and summarise
-
-```{r}
-dfPharV2 <- read_csv("dfPharV2.csv")
-dfPharV2
-```
-
-
-### First predictive model
-
-#### Linear model
-
-Let's start by a simple linear model to evaluate relationship between a particular measure `Z2-Z1` and the context.
-
-```{r}
-dfPharV2 <- dfPharV2 %>% 
-  mutate(context = factor(context, levels = c("Non-Guttural", "Guttural")))
-
-dfPharV2 %>% 
-  lm(Z2mnZ1 ~ context, data = .) %>% 
-  summary()
-```
-
-
-What this result is telling us is that there is a statistically significant decrease in `Z2-Z1` in the guttural class when compared with the non-guttural (ignoring the fact that we need mixed modelling to evaluate the results). Now let's ask the question: with this linear model, can you predict percentage separation between the two classes? Are you able to tell if the differences observed between the two classes are meaningful? This is where we need to change our way of looking at the data. Let's look at GLM as a classification tool as above 
-
-
-#### GLM as a classification tool
-
-##### Model specification
-
-We run a GLM with `context` as our outcome, and `Z2-Z1` as our predictor. We want to evaluate whether the two classes can be separated when using the acoustic metric `Z2-Z1`. Context has two levels, and this will be considered as a binomial distribution. 
-
-
-```{r}
-mdl.glm.Z2mnZ1 <- dfPharV2 %>% 
-  glm(context ~ Z2mnZ1, data = ., family = binomial)
-summary(mdl.glm.Z2mnZ1)
-tidy(mdl.glm.Z2mnZ1) %>% 
-  select(term, estimate) %>% 
-  mutate(estimate = round(estimate, 3))
-# to only get the coefficients
-mycoef2 <- tidy(mdl.glm.Z2mnZ1) %>% pull(estimate)
-```
-
-##### Plogis
-
-The result above shows that when moving from the `non-guttural` (intercept), a unit increase (i.e., `guttural`) yields a statistically significant decrease in the logodds associated with `Z2-Z1`. We can evaluate this further from a classification point of view, using `plogis`.
-
-
-```{r}
-# non-guttural
-plogis(mycoef2[1])
-#guttural
-plogis(mycoef2[1] + mycoef2[2])
-```
-
-
-This shows that `Z2-Z1` is able to explain the difference in the `guttural` class with an accuracy of 59%. Let's continue with this model further.
-
-##### Model predictions
-
-As above, we obtain predictions from the model. Because we are using a numeric predictor, we need to assign a threshold for the predict function. The threshold can be thought of as telling the predict function to assign any predictions lower than 50% to one group, and any higher to another. 
-
-```{r}
-pred.glm.Z2mnZ1 <- predict(mdl.glm.Z2mnZ1, type = "response")>0.5
-
-tbl.glm.Z2mnZ1 <- table(pred.glm.Z2mnZ1, dfPharV2$context)
-rownames(tbl.glm.Z2mnZ1) <- c("Non-Guttural", "Guttural")
-tbl.glm.Z2mnZ1
-# from PresenceAbsence
-PresenceAbsence::pcc(tbl.glm.Z2mnZ1)
-PresenceAbsence::specificity(tbl.glm.Z2mnZ1)
-PresenceAbsence::sensitivity(tbl.glm.Z2mnZ1)
-
-roc.glm.Z2mnZ1 <- pROC::roc(dfPharV2$context, as.numeric(pred.glm.Z2mnZ1))
-roc.glm.Z2mnZ1
-pROC::plot.roc(roc.glm.Z2mnZ1, legacy.axes = TRUE)
-```
-
-
-The model above was able to explain the difference between the two classes with an accuracy of 67.7%. It has a slightly low specificity (0.58) to detect `gutturals`, but a flighty high sensitivity (0.75) to reject the `non-gutturals`. Looking at the confusion matrix, we observe that both groups were relatively accurately identified, but we have relatively large errors (or confusions). The AUC is at 0.67, which is not too high. 
-
-Let's continue with GLM to evaluate it further. We start by running a correlation test to evaluate issues with GLM.
-
-### Correlation tests
-
-```{r}
-corr <- cor(dfPharV2[-1])
-col <- colorRampPalette(c("red", "white", "blue"))(20)
-corrplot(corr, type = "upper", order = "hclust", col = col)
-```
-
-
-The correlation plot above shows which predictors are correlated with each other (positively or negatively). They are organised by hierarchical clustering that identifies clusters of predictors correlated with each other. 
-
-#### Correlation tests
-
-
-Below, we look at two predictors that are correlated with each other:  `Z3-Z2` (F3-F2 in Bark) and `A2*-A3*` (normalised amplitude differences between harmonics closest to F2 and F3). The results of the correlation test shows the two predictors to negatively correlate with each other at a rate of -0.87.
-
-
-
-```{r}
-cor.test(dfPharV2$Z3mnZ2, dfPharV2$A2mnA3)
-```
-
-
-#### Plots to visualise the data
-
-```{r}
-dfPharV2 %>% 
-  ggplot(aes(x = context, y = Z3mnZ2)) + 
-  geom_boxplot()
-
-dfPharV2 %>% 
-  ggplot(aes(x = context, y = A2mnA3)) + 
-  geom_boxplot()  
-```
-
-
-
-As we see from the plot, `Z3-Z2` is higher in the guttural, whereas  `A2*-A3*` is lower. 
-
-#### GLM on correlated data
-
-
-Let's run a logistic regression as a classification tool to predict the  context as a function of each predictor separately and then combined. 
-
-```{r}
-dfPharV2 %>% glm(context ~ Z3mnZ2, data = ., family = binomial) %>% summary()
-
-dfPharV2 %>% glm(context ~ A2mnA3, data = ., family = binomial) %>% summary()
-
-dfPharV2 %>% glm(context ~ Z3mnZ2 + A2mnA3, data = ., family = binomial) %>% summary()
-```
-
-
-
-When looking at the three models above, it is clear that the logodd value for `Z3-Z2` is positive, whereas it is negative for `A2*-A3*`. When adding the two predictors together, there is clear **suppression**: the coefficients for both predictors are now negative. The relatively high correlation between the predictors affected the coefficients and changed the direction of the slope; collinearity is harmful for any regression analysis. 
-
-In the following, we introduce decision trees followed by Random Forest as a way to deal with collinearity and to make sense of multivariate predictors. 
-
 
 
 ## Individual trees
@@ -1352,6 +1303,29 @@ There are multiple packages that one can use to grow Random Forests:
 
 The first implementation of Random Forests is widely used in research. One of the issues in this first implementation is that it favoured specific types of predictors (e.g., categorical predictors, predictors with multiple cut-offs, etc). Random Forests grown via Conditional Inference Trees as implemented in `party` guard against this bias, but they are computationally demanding. Random Forests grown via permutation tests as implemented in `ranger` speed up the computations and can mimic the unbiased selection process. 
 
+## Declare parallel computing
+
+We start by declaring parallel computing on your devices. This is essential to run these complex computations. The code below is designed to only use 1 core from your machine (and it is not too complex), but if you try to increase the complexity of your computations, you will need parallel computing. 
+
+```{r}
+
+set.seed(123456)
+
+#Declare parallel computing 
+ncores <- availableCores()
+cat(paste0("Number of cores available for model calculations set to ", ncores, "."))
+registerDoFuture()
+makeClusterPSOCK(ncores)
+plan(multisession)
+ncores
+
+# below we register our random number generator. This will mostly be used within the tidymodels below. This allows replication of the results
+# below to suppress any warnings from doFuture
+options(doFuture.rng.onMisuse = "ignore")
+```
+
+
+
 ## Party
 
 Random Forests grown via conditional inference trees, are different from the original implementation. They offer an unbiased selection process that guards against overfitting of the data. There are various points we need to consider in growing the forest, including number of trees and predictors to use each time. Let us run our first Random Forest via conditional inference trees. To make sure the code runs as fast as it can, we use a very low number of trees: only 100 It is well known that the more trees you grow, the more confidence you have in the results, as model estimation will be more stable. In this example, I would easily go with 500 trees..
@@ -1421,6 +1395,7 @@ You could use the normal `varimp` as implemented in `party`. This uses mean decr
 
 **DANGER ZONE**: using conditional permutation test requires a lot of RAMs, unless you have access to a cluster, and/or a lot of RAMs, do not attempt running it. We will run the non-conditional version here for demonstration.
 
+#### Non-conditional permutation tests
 
 ```{r}
 set.seed(123456)
@@ -1428,8 +1403,18 @@ VarImp.cforest <- varImp::varImpAUC(mdl.cforest, conditional = FALSE)
 lattice::barchart(sort(VarImp.cforest))
 ```
 
-
 The Variable Importance Scores via non-conditional permutation tests showed that `A2*-A3*` (i.e., energy in mid-high frequencies around F2 and F3) is the most important variable at explaining the difference between gutturals and non-gutturals, followed by `Z4-Z3` (pharyngeal constriction), `H1*-A3*` (energy in mid-high frequency component), `Z2-Z1` (degree of compactness), `Z3-Z2` (spectral divergence), `H1*-A2` (energy in mid frequency component) and `Z1-Z0` (degree of openness). All other predictors contribute to the contrast but to varying degrees (from `H1*-H2*` to `H1*-A1*`). The last 5 predictors are the least important and and the CPP has a 0 mean decrease in accuracy and can even be ignored. 
+
+
+#### Conditional permutation tests
+
+```{r}
+set.seed(123456)
+VarImp.cforest <- varImp::varImpAUC(mdl.cforest, conditional = TRUE)
+lattice::barchart(sort(VarImp.cforest))
+```
+
+
 
 
 ### Conclusion
@@ -1462,7 +1447,7 @@ mdl.ranger <- dfPharV2 %>%
   ranger(context ~ ., data = ., num.trees = 500, mtry = round(sqrt(23)),
          replace = FALSE, sample.fraction = 0.632, 
          importance = "permutation", scale.permutation.importance = FALSE,
-         splitrule = "extratrees", num.threads = 1)
+         splitrule = "extratrees", num.threads = ncores)
 mdl.ranger
 ```
 
@@ -1471,7 +1456,7 @@ Results of our Random Forest shows an OOB (Out-Of-Bag) error rate of 8.2%, i.e.,
 
 ### Going further
 
-Unfortunately, when growing a tree with `ranger`, we cannot use predictions from the OOB sample as there is no comparable options to do so on the predictions. We need to hard-code this. We split the data into a training and a testing sets. The training will be on 2/3s of the data; the testing is on the remaining 1/3. 
+Unfortunately, when growing a tree with `ranger`, we cannot use predictions from the OOB sample as there are no comparable options to do so on the predictions. We need to hard-code this. We split the data into a training and a testing sets. The training will be on 2/3s of the data; the testing is on the remaining 1/3. 
 
 #### Create a training and a testing set
 
@@ -1493,7 +1478,7 @@ mdl.ranger2 <- gutt.train %>%
   ranger(context ~ ., data = ., num.trees = 500, mtry = round(sqrt(23)),
          replace = FALSE, sample.fraction = 0.632, 
          importance = "permutation", scale.permutation.importance = FALSE,
-         splitrule = "extratrees", num.threads = 1, write.forest = TRUE)
+         splitrule = "extratrees", num.threads = ncores, write.forest = TRUE)
 mdl.ranger2
 ```
 
@@ -1549,7 +1534,7 @@ set.seed(123456)
 VarImp.pval <- importance_pvalues(mdl.ranger2, method = "altmann",
                                   num.permutations = 20, 
                                   formula = context ~ ., data = gutt.train,
-                                  num.threads = 2)
+                                  num.threads = ncores)
 VarImp.pval
 ```
 
@@ -1629,6 +1614,35 @@ trainData_baked
 
 Once we have prepared the `recipe`, we can `bake it` to see the changes applied to it.
 
+#### Predictors remaining
+
+
+```{r, fig.width=20, fig.height=15}
+box_fun_plot = function(data, x, y) {
+  ggplot(data = data, aes(x = .data[[x]],
+                          y = .data[[y]],
+                          fill = .data[[x]])) +
+    geom_boxplot() +
+    labs(title = y,
+         x = x,
+         y = y) +
+    theme(
+      legend.position = "none"
+    ) +
+    theme_bw()
+}
+
+# Create vector of predictors
+expl <- names(trainData_baked)[-(dim(trainData_baked)[2])]#step_corr
+
+# Loop vector with map
+expl_plots_box <- map(expl, ~box_fun_plot(data = trainData_baked, x = "context", y = .x) )
+plot_grid(plotlist = expl_plots_box)
+```
+
+
+
+
 #### Setting the engine
 
 We set the engine here as a `rand_forest`. We specify a classification mode. Then, we set an engine with engine specific parameters. 
@@ -1637,11 +1651,9 @@ We set the engine here as a `rand_forest`. We specify a classification mode. The
 set.seed(123456)
 engine_tidym <- rand_forest(
     mode = "classification",
-    ## to tune both mtry and trees, uncomment the two lines below and comment the next two lines
-    ##mtry %>% tune(),
-    ##trees %>% tune(),
-    mtry = round(sqrt(23)),
-    trees = 500,
+    engine = "ranger",
+    mtry %>% tune(),
+    trees %>% tune(),
     min_n = 1
   ) %>% 
   set_engine("ranger", importance = "permutation", sample.fraction = 0.632,
@@ -1653,16 +1665,16 @@ engine_tidym <- rand_forest(
 
 If we want to tune the model, then uncomment the lines below. It is important to use an mtry that hovers around the round(sqrt(Variables)). If you use all available variables, then your forest is biased as it is able to see all predictors. For number of trees, low numbers are not great, as you can easily underfit the data and not produce meaningful results. Large numbers are fine and Random Forests do not overfit (in theory). 
 
-The full dataset has around 2000 observations, and 23 predictors (well even more, but let's ignore it for the moment). I tuned `mtry` to be between 4 and 6, and `trees` to be between 1000 and 5000 in a 30 step increment. In total, with a 10-folds cross validation, I grew 30 random forests on each fold for a total of 300 Random Forests on the training set!!! This of course will take a loooooong time to compute on your computer if using one thread. So use parallel computing or a cluster. When running in the cluster with 20 cores, each with 11GB RAMs, and it took around 260.442 seconds to run with 220GB RAMS! Of course, with smaller RAMs and number of cores, the code will still run butwill take longer. 
+The full dataset has around 2000 observations, and 23 predictors (well even more, but let's ignore it for the moment). I tuned `mtry` to be between 4 and 6, and `trees` to be between 1000 and 5000 in a 30 step increment. In total, with a 10-folds cross validation, I grew 30 random forests on each fold for a total of 300 Random Forests on the training set!!! This of course will take a loooooong time to compute on your computer if using one thread. So use parallel computing or a cluster. When running in the cluster with 20 cores, each with 11GB RAMs, and it took around 260.442 seconds to run with 220GB RAMS! Of course, with smaller RAMs and number of cores, the code will still run but will take longer. 
 
 
 ```{r}
-## set.seed(123456)
-##gridy_tidym <- grid_random(
-##  mtry() %>% range_set(c(4, 6)),
-##  trees() %>% range_set(c(1000, 5000)),
-##  size = 30
-##  )
+set.seed(123456)
+gridy_tidym <- grid_random(
+  mtry() %>% range_set(c(4, 6)),
+  trees() %>% range_set(c(1000, 2000)),
+  size = 30
+  )
 ```
 
 #### Workflow
@@ -1678,24 +1690,30 @@ wkfl_tidym <- workflow() %>%
 
 #### Tuning and running model
 
-Here we run the model starting with the workflow, the cross-validation sample, the tuning parameters and asking for specific metrics. Below, we receive one warning:
+Here we run the model starting with the workflow, the cross-validation sample, the tuning parameters and asking for specific metrics. 
 
-1. We did not define any tuning, and receive a warning about it.
+The model below will do the following:
+1. Use a 10-folds cross validation on the training test
+2. Tune the hyper-parameters to reach the model with the best predictions
+3. Within each fold, we grow 30 random forests; we have a total of 300 Random Forests, and we use an ROC-AUC based search for the best performing model
 
-Above, we added an option to suppress any warning messages from `doFuture`. If you do not use that option, you may receive a warning that some threads are not using correct random seeds. This is a false-positive well known to the developers. For more details, see [this link](https://tune.tidymodels.org/reference/control_grid.html), but also their github page; so you can ignore the warning. 
+Of course, you could use a larger size to grow more trees, with this will take longer to run!
+
+The model will run for about 5 minutes. 
+ 
 
 ```{r}
 set.seed(123456)
 system.time(grid_tidym <- 
   tune_grid(wkfl_tidym, 
             resamples = train_cv,
-            ## if tuning mtry and trees, uncomment the line below
-            #grid = gridy_tidym,
-            metrics = metric_set(accuracy, roc_auc, sens, spec),
-            control = control_grid(save_pred = TRUE, parallel_over = "resamples"))
+            grid = gridy_tidym,
+            metrics = metric_set(accuracy, roc_auc, sens, spec,f_meas, precision, recall),
+            control = control_grid(save_pred = TRUE, parallel_over = NULL))
 )
 print(grid_tidym)
 ```
+
 
 
 #### Finalise model
@@ -1742,6 +1760,32 @@ show_best(grid_tidym, metric = "sens", n = 1)$mean
 ```{r}
 show_best(grid_tidym, metric = "spec", n = 1)$mean
 ```
+
+
+
+##### F-measure
+
+```{r}
+# Cross-validated training performance
+show_best(grid_tidym, metric = "f_meas", n = 1)$mean
+```
+
+
+##### Precision
+
+```{r}
+# Cross-validated training performance
+show_best(grid_tidym, metric = "precision", n = 1)$mean
+```
+
+
+##### Recall
+
+```{r}
+# Cross-validated training performance
+show_best(grid_tidym, metric = "recall", n = 1)$mean
+```
+
 
 #### Predictions testing set
 
@@ -1820,9 +1864,9 @@ wkfl_tidym_final$.predictions[[1]] %>%
 
 
 
-
 # session info
 
 ```{r warning=FALSE, message=FALSE, error=FALSE}
 sessionInfo()
 ```
+
