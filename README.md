@@ -1,4 +1,6 @@
 # R-Training
+[![DOI](https://zenodo.org/badge/455609569.svg)](https://zenodo.org/badge/latestdoi/455609569)
+
 This repository contains the full material I use in my teaching at the Université de Paris at various levels (undergraduate and Masters' degree).
 
 If using any code from here, please make sure to cite the page!
